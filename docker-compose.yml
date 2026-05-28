@@ -1,0 +1,130 @@
+version: "3.9"
+
+services:
+  # ─── PostgreSQL ───────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: studio_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Redis ───────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: studio_redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── FastAPI Backend ──────────────────────────────────────
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: studio_api
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./api:/app
+      - media_files:/app/media
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # ─── Telegram Bot ────────────────────────────────────────
+  bot:
+    build:
+      context: ./bot
+      dockerfile: Dockerfile
+    container_name: studio_bot
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./bot:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+    command: python main.py
+
+  # ─── Celery Worker ────────────────────────────────────────
+  celery_worker:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: studio_celery_worker
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./api:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A core.celery_app worker --loglevel=info --concurrency=4
+
+  # ─── Celery Beat (cron) ───────────────────────────────────
+  celery_beat:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: studio_celery_beat
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./api:/app
+    depends_on:
+      - celery_worker
+    command: celery -A core.celery_app beat --loglevel=info
+
+  # ─── Nginx ───────────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: studio_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./miniapp/dist:/usr/share/nginx/html:ro
+      - certbot_data:/etc/letsencrypt
+      - media_files:/media:ro
+    depends_on:
+      - api
+      - bot
+
+volumes:
+  postgres_data:
+  redis_data:
+  media_files:
+  certbot_data:

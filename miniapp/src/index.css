@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Telegram theme integration ─────────────────────────────── */
+:root {
+  --tg-bg:          #0f0f0f;
+  --tg-secondary:   #1a1a1a;
+  --tg-text:        #f0ede8;
+  --tg-hint:        #a09890;
+  --tg-accent:      #C8A96E;
+  --tg-btn:         #C8A96E;
+  --tg-btn-text:    #0f0f0f;
+  --safe-top:       env(safe-area-inset-top, 0px);
+  --safe-bottom:    env(safe-area-inset-bottom, 0px);
+}
+
+/* ── Reset ───────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+
+body {
+  background: var(--tg-bg);
+  color: var(--tg-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  line-height: 1.5;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  /* Telegram WebApp scroll */
+  overscroll-behavior: none;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 0; height: 0; }
+
+/* ── Tap highlight ───────────────────────────────────────────── */
+* { -webkit-tap-highlight-color: transparent; }
+
+/* ── Utility ─────────────────────────────────────────────────── */
+.safe-top    { padding-top:    var(--safe-top); }
+.safe-bottom { padding-bottom: var(--safe-bottom); }
+
+/* ── Skeleton shimmer ────────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #1a1a1a 25%, #242424 50%, #1a1a1a 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 8px;
+}
+
+/* ── Page transitions ────────────────────────────────────────── */
+.page-enter { animation: fadeIn 0.2s ease-out; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Bottom nav safe area ────────────────────────────────────── */
+.bottom-nav {
+  padding-bottom: max(var(--safe-bottom), 8px);
+}
